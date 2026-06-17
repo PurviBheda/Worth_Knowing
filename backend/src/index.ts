@@ -93,10 +93,10 @@ const server = app.listen(PORT, async () => {
       });
     } else {
       const aiSummaryCount = await prisma.aiSummary.count();
-      if (aiSummaryCount === 0) {
-        console.log('🚀 Articles exist but no AI summaries found – triggering batch summarization...');
+      if (aiSummaryCount < 30) {
+        console.log(`🚀 Database has only ${aiSummaryCount} AI summaries – triggering batch summarization...`);
         const { processPendingArticles } = require('./services/aiService');
-        processPendingArticles(20, 3).catch((err: any) => {
+        processPendingArticles(30, 3).catch((err: any) => {
           console.error('⚠️ Batch AI summarization failed:', err);
         });
       }
