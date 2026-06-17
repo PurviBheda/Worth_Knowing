@@ -9,6 +9,7 @@
     "build:all": "npm run build --prefix frontend && npm run build --prefix backend",
     "db:generate": "npm run prisma:generate --prefix backend",
     "db:migrate": "npm run prisma:migrate --prefix backend",
+    "db:migrate:deploy": "npm run prisma:migrate:deploy --prefix backend",
     "db:seed": "npm run prisma:seed --prefix backend"
   },
   "devDependencies": {
