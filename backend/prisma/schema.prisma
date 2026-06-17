@@ -1,0 +1,313 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id                  String    @id @default(uuid())
+  email               String    @unique
+  name                String?
+  passwordHash        String?                      // null for OAuth-only users
+  profilePicture      String?
+  role                Role      @default(USER)
+  isEmailVerified     Boolean   @default(false)
+  onboardingCompleted Boolean   @default(false)
+  provider            AuthProvider @default(LOCAL) // LOCAL | GOOGLE
+  googleId            String?   @unique
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  // Relations
+  preferences         UserPreferences?
+  bookmarks           Bookmark[]
+  readingHistory      ReadingHistory[]
+  notifications       Notification[]
+  followedTopics      FollowedTopic[]
+  followedCompanies   FollowedCompany[]
+  passwordResetTokens PasswordResetToken[]
+  emailVerifications  EmailVerificationToken[]
+
+  @@index([email])
+  @@index([googleId])
+}
+
+enum AuthProvider {
+  LOCAL
+  GOOGLE
+}
+
+model UserPreferences {
+  id                     String   @id @default(uuid())
+  userId                 String   @unique
+  user                   User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Category interests (stored as JSON array of category slugs)
+  interests              Json     @default("[]")  // String[]
+
+  // Notification preferences
+  emailBreakingNews      Boolean  @default(true)
+  emailDailyBrief        Boolean  @default(true)
+  emailMarketAlerts      Boolean  @default(false)
+  emailJobAlerts         Boolean  @default(false)
+  pushBreakingNews       Boolean  @default(true)
+  pushDailyBrief         Boolean  @default(false)
+
+  // Feed preferences
+  preferredLanguage      String   @default("en")
+  feedDensity            String   @default("comfortable")  // compact | comfortable | spacious
+  darkMode               Boolean  @default(true)
+
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+}
+
+model ReadingHistory {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  articleId   Int
+  article     Article  @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  readAt      DateTime @default(now())
+  readSeconds Int      @default(0)   // time spent reading in seconds
+  completed   Boolean  @default(false)
+
+  @@unique([userId, articleId])
+  @@index([userId, readAt])
+}
+
+model Notification {
+  id        String           @id @default(uuid())
+  userId    String
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      NotificationType
+  title     String
+  body      String           @db.Text
+  articleId Int?
+  isRead    Boolean          @default(false)
+  createdAt DateTime         @default(now())
+
+  @@index([userId, isRead])
+  @@index([userId, createdAt])
+}
+
+enum NotificationType {
+  BREAKING_NEWS
+  DAILY_BRIEF
+  MARKET_ALERT
+  JOB_ALERT
+  SYSTEM
+}
+
+model FollowedTopic {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  topicSlug String
+  topicName String
+  createdAt DateTime @default(now())
+
+  @@unique([userId, topicSlug])
+  @@index([userId])
+}
+
+model FollowedCompany {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  companyName String
+  ticker      String?
+  createdAt   DateTime @default(now())
+
+  @@unique([userId, companyName])
+  @@index([userId])
+}
+
+model PasswordResetToken {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([token])
+}
+
+model EmailVerificationToken {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([token])
+}
+
+enum Role {
+  USER
+  ADMIN
+  AUTHOR
+}
+
+model Category {
+  id        Int       @id @default(autoincrement())
+  name      String    @unique
+  slug      String    @unique
+  articles  Article[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+model Source {
+  id        Int       @id @default(autoincrement())
+  name      String    @unique
+  url       String?
+  logo      String?
+  articles  Article[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+model Article {
+  id          Int        @id @default(autoincrement())
+  title       String
+  summary     String     @db.Text
+  content     String?    @db.Text
+  time        String     // Matching mockup time strings like "2h ago", "1d ago"
+  publishedAt DateTime   @default(now())
+  credibility Int        @default(100)
+  sentiment   Sentiment  @default(NEUTRAL)
+  imageId     String?
+  sourceUrl   String?
+  categoryId  Int
+  category    Category   @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  sourceId    Int
+  source      Source     @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  bookmarks   Bookmark[]
+  readingHistory      ReadingHistory[]
+  aiSummary          AiSummary?
+  tags               ArticleTag[]
+  verificationStatus VerificationStatus @default(UNVERIFIED)
+  verificationReport VerificationReport?
+}
+
+
+enum Sentiment {
+  POSITIVE
+  NEGATIVE
+  NEUTRAL
+}
+
+enum VerificationStatus {
+  VERIFIED
+  PARTIALLY_VERIFIED
+  UNVERIFIED
+  CONFLICTING_REPORTS
+}
+
+model Bookmark {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  articleId Int
+  article   Article  @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, articleId])
+}
+
+// ── AI-Generated Content ───────────────────────────────────────────────────────
+
+model AiSummary {
+  id                 Int      @id @default(autoincrement())
+  articleId          Int      @unique
+  article            Article  @relation(fields: [articleId], references: [id], onDelete: Cascade)
+
+  // Core summaries
+  headlineSummary    String   @db.Text   // 1-line headline summary
+  shortSummary       String   @db.Text   // ~100-word summary
+  keyTakeaways       Json                // String[] – 3 to 5 bullet points
+  whyItMatters       String   @db.Text   // Why It Matters paragraph
+  seoDescription     String   @db.Text   // SEO-friendly meta description
+
+  // Enrichment
+  sentiment          Sentiment @default(NEUTRAL)
+  sentimentScore     Float     @default(0.0)  // -1.0 (very negative) to 1.0 (very positive)
+  tags               Json                     // String[] of auto-generated tags
+  readingTimeMinutes Int       @default(1)
+
+  // Quality / confidence
+  confidence         Float     @default(1.0)  // 0.0 – 1.0
+  flaggedForReview   Boolean   @default(false)
+
+  // Metadata
+  provider           String    @default("gemini")  // gemini | openai | anthropic
+  modelVersion       String?
+  generatedAt        DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  @@index([flaggedForReview])
+  @@index([sentiment])
+}
+
+model VerificationReport {
+  id                  Int                @id @default(autoincrement())
+  articleId           Int                @unique
+  article             Article            @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  status              VerificationStatus @default(UNVERIFIED)
+  credibilityScore    Int                @default(100)
+  sourcesCount        Int                @default(1)
+  whyVerified         String             @db.Text
+  scoreExplanation    String             @db.Text
+  supportingSources   Json               // Array of { name: string, url: string, matchType: string }
+  headlineSensational  Boolean            @default(false)
+  headlineClickbait   Boolean            @default(false)
+  misleadingContent   Boolean            @default(false)
+  missingEvidence     Json               // Array of strings
+  unsupportedClaims   Json               // Array of strings
+  duplicateIds        Json               // Array of ints
+  verifiedAt          DateTime           @default(now())
+  isFlagged           Boolean            @default(false)
+
+  // Admin Override fields
+  overrideStatus      VerificationStatus?
+  overrideCredibility Int?
+  overrideReason      String?            @db.Text
+  overriddenAt        DateTime?
+
+  @@index([isFlagged])
+  @@index([status])
+}
+
+model DailyBrief {
+  id           Int      @id @default(autoincrement())
+  date         DateTime @unique  // Date of the brief (normalized to midnight UTC)
+  title        String            // e.g. "Morning Brief – June 17, 2026"
+  content      String   @db.Text // Full 5-minute-read narrative
+  articleIds   Json              // Int[] of included article IDs
+  categories   Json              // String[] of categories covered
+  isPublished  Boolean  @default(true)
+  generatedAt  DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([date])
+  @@index([isPublished])
+}
+
+model ArticleTag {
+  id        Int       @id @default(autoincrement())
+  name      String    @unique
+  articles  Article[]
+  createdAt DateTime  @default(now())
+
+  @@index([name])
+}
