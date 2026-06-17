@@ -41,11 +41,6 @@ app.use('/api/verification', verificationRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/user', personalizationRoutes);
 
-// SPA fallback
-app.get('*', (req, res) => {
-  res.sendFile(path.resolve(frontendPath, 'index.html'));
-});
-
 // Health check endpoint
 app.get('/api/health', async (req: Request, res: Response) => {
   try {
@@ -65,6 +60,11 @@ app.get('/api/health', async (req: Request, res: Response) => {
       error: error.message || error
     });
   }
+});
+
+// SPA fallback
+app.get('*', (req, res) => {
+  res.sendFile(path.resolve(frontendPath, 'index.html'));
 });
 
 // Global Error Handler
