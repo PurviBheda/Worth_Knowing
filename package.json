@@ -10,6 +10,7 @@
     "db:generate": "npm run prisma:generate --prefix backend",
     "db:migrate": "npm run prisma:migrate --prefix backend",
     "db:migrate:deploy": "npm run prisma:migrate:deploy --prefix backend",
+    "db:push": "npm run prisma:db:push --prefix backend",
     "db:seed": "npm run prisma:seed --prefix backend"
   },
   "devDependencies": {
